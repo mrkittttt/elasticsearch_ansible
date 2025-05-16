@@ -1,0 +1,38 @@
+- name: Gather facts from other hosts
+  ansible.builtin.setup:
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['elasticsearch_nodes'] }}"
+  register: collected_facts
+  run_once: true
+
+
+- name: Create facts for a list for IP addresses and hostnames of elasticsearch_nodes group
+  tags: create_transport_cert
+  ansible.builtin.set_fact:
+      node_ip_addresses: "{{ collected_facts.results | map(attribute='ansible_facts.ansible_default_ipv4.address') }}"
+      node_hostnames: "{{ collected_facts.results | map(attribute='ansible_facts.ansible_hostname') }}"
+
+
+- name: Create transport certificate
+  become: true
+  tags: create_transport_cert
+  ansible.builtin.command: "/usr/share/elasticsearch/bin/elasticsearch-certutil cert \
+                            --ca /usr/share/elasticsearch/elastic-stack-ca.p12 \
+                            --ca-pass {{ elastic_stack_ca_pass }} \
+                            --ip {{ node_ip_addresses | join(',') }} \
+                            --dns {{ node_hostnames | join(',') }} \
+                            --pass {{ elastic_transport_pass }} \
+                            --out transport.p12"
+
+
+- name: Move transport.p12 to /etc/elasticsearch/certs
+  become: true
+  ansible.builtin.command: "mv /usr/share/elasticsearch/transport.p12 /etc/elasticsearch/certs"
+
+
+- name: Set ownership for transport cert
+  become: true
+  ansible.builtin.file:
+    path: /etc/elasticsearch/certs/transport.p12
+    owner: elasticsearch
+    group: elasticsearch

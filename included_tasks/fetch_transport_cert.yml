@@ -1,0 +1,6 @@
+- name: Fetch transport.p12 to control node
+  become: true
+  ansible.builtin.fetch:
+    src: /etc/elasticsearch/certs/transport.p12
+    dest: ./files/
+    flat: true

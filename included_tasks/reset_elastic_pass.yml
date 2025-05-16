@@ -1,0 +1,8 @@
+- name: Reset elastic user password
+  ansible.builtin.shell: "echo 'y' | /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -a"
+  register: reset_pass_output
+  changed_when: true
+
+- name: Show password output
+  ansible.builtin.debug:
+    var: reset_pass_output.stdout_lines

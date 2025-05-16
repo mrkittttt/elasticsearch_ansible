@@ -1,0 +1,5 @@
+- name: Set permissive mode for SELinux
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+  when: ansible_os_family == "RedHat"

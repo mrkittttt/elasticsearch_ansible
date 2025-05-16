@@ -1,0 +1,118 @@
+---
+- name: Install elasticsearch
+  hosts: elasticsearch_nodes
+  gather_facts: true
+  tags: install_elasticsearch
+  roles:
+    - install_elasticsearch
+
+
+- name: Open ports in a firewalld
+  hosts: elasticsearch_nodes
+  gather_facts: true
+  tags: open_ports_firewalld
+  tasks:
+    - name: Include open_ports_firewalld.yml
+      ansible.builtin.include_tasks: included_tasks/open_ports_firewalld.yml
+  handlers:
+    - name: Reload firewalld
+      become: true
+      ansible.builtin.service:
+        name: firewalld
+        state: restarted
+
+
+- name: Set permissive mode for SELinux
+  hosts: elasticsearch_nodes
+  become: true
+  gather_facts: true
+  tags: selinux_permissive
+  tasks:
+    - name: Include selinux_permissive.yml
+      ansible.builtin.include_tasks: included_tasks/selinux_permissive.yml
+
+
+- name: Create CA cert
+  hosts: master_node
+  gather_facts: false
+  vars_files:
+    - ./external_vars/secrets.yml
+  tags: create_ca_cert
+  tasks:
+    - name: Include create_ca_cert.yml
+      ansible.builtin.include_tasks: included_tasks/create_ca_cert.yml
+
+
+- name: Create transport cert
+  hosts: master_node
+  gather_facts: true
+  vars_files:
+    - ./external_vars/secrets.yml
+  tags: create_transport_cert
+  tasks:
+    - name: Include create_transport_cert.yml
+      ansible.builtin.include_tasks: included_tasks/create_transport_cert.yml
+
+
+# A simple way to deliver transport.p12 to all hosts is to firstly copy it to a control node
+# From there, ./files/transport.p12 will be copied to remaining nodes
+- name: Fetch transport cert to control node
+  hosts: master_node
+  gather_facts: false
+  tags: fetch_transport_cert
+  tasks:
+    - name: Include fetch_transport_cert.yml
+      ansible.builtin.include_tasks: included_tasks/fetch_transport_cert.yml
+
+
+# Need to copy transport.p12 to all hosts, except the one on which it was created
+- name: Copy transport.p12 to remaining nodes
+  hosts: elasticsearch_nodes:!master_node
+  gather_facts: false
+  become: true
+  tags: copy_transport_cert
+  tasks:
+    - name: Copy certificates to remaining nodes
+      ansible.builtin.copy:
+        src: ./files/transport.p12
+        dest: /etc/elasticsearch/certs/
+        owner: elasticsearch
+        group: elasticsearch
+        mode: u+rw
+
+
+- name: Configure keystores
+  hosts: elasticsearch_nodes
+  vars_files:
+    - ./external_vars/secrets.yml
+  gather_facts: false
+  tags: configure_keystores
+  tasks:
+    - name: Include configure_keystores.yml
+      ansible.builtin.include_tasks: included_tasks/configure_keystores.yml
+
+
+- name: Configure elasticsearch.yml
+  hosts: elasticsearch_nodes
+  gather_facts: true
+  tags: elasticsearch_yml
+  tasks:
+    - name: Include elasticsearch_yml.yml
+      ansible.builtin.include_tasks: included_tasks/elasticsearch_yml.yml
+  handlers:
+    - name: Make sure elasticsearch is started
+      become: true
+      ansible.builtin.service:
+        name: elasticsearch
+        state: started
+
+
+# Randomly generated password for "elastic" user will be shown after execution of this task, save it somewhere
+- name: Reset elastic user password
+  become: true
+  hosts: master_node
+  gather_facts: false
+  tags: reset_elastic_pass
+  tasks:
+    - name: Include reset_elastic_pass.yml
+      ansible.builtin.include_tasks: included_tasks/reset_elastic_pass.yml

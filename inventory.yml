@@ -1,0 +1,5 @@
+elasticsearch_nodes:
+  hosts:
+    # WRITE HOSTS HERE
+  vars:
+    cluster_name: my-cluster

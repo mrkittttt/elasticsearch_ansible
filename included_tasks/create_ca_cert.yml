@@ -1,0 +1,5 @@
+- name: Create CA certificate
+  become: true
+  ansible.builtin.command: "/usr/share/elasticsearch/bin/elasticsearch-certutil ca \
+                            -out elastic-stack-ca.p12 \
+                            -pass {{ elastic_stack_ca_pass }}"

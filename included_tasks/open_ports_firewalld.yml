@@ -1,0 +1,11 @@
+- name: Open ports in a firewalld
+  become: true
+  when: ansible_os_family == "RedHat"
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    state: enabled
+    permanent: true
+  loop:
+    - "9200/tcp"
+    - "9300/tcp"
+  notify: Reload firewalld

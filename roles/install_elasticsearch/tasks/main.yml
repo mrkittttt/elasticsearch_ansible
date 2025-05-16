@@ -1,0 +1,63 @@
+- name: Install elasticsearch for RedHat based distribution
+  when: ansible_os_family == "RedHat"
+  block:
+    - name: Import GPG key
+      become: true
+      ansible.builtin.rpm_key:
+        state: present
+        key: "https://artifacts.elastic.co/GPG-KEY-elasticsearch"
+
+
+    - name: Transfer elasticsearch.repo
+      become: true
+      ansible.builtin.copy:
+        src: elasticsearch.repo
+        dest: /etc/yum.repos.d/elasticsearch.repo
+        owner: root
+        group: root
+        mode: u+rw,g+r,o+r
+
+
+    - name: Update cache
+      become: true
+      ansible.builtin.command: "dnf makecache"
+
+
+    - name: Install elasticsearch
+      become: true
+      ansible.builtin.dnf:
+        name: "elasticsearch-{{ ELASTICSEARCH_VERSION }}"
+        enablerepo: elasticsearch
+
+
+    - name: Enable elasticsearch
+      become: true
+      ansible.builtin.service:
+        name: elasticsearch
+        enabled: true
+
+
+- name: Install elasticsearch for Debian based distribution
+  when: ansible_os_family == "Debian"
+  block:
+    - name: Import GPG key
+      become: true
+      ansible.builtin.shell: "wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg --yes"
+
+
+    - name: Install apt-transport-https
+      become: true
+      ansible.builtin.apt:
+        name: apt-transport-https
+
+
+    - name: Add elasticsearch repository
+      become: true
+      ansible.builtin.shell: 'echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list'
+
+
+    - name: Install elasticsearch
+      become: true
+      ansible.builtin.apt:
+        name: "elasticsearch={{ ELASTICSEARCH_VERSION }}"
+        update_cache: true
